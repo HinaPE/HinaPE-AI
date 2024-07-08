@@ -1,43 +1,41 @@
-from phi.torch.flow import *
+# Pure supervised learning
 
-velocity = StaggeredGrid((0, 0, 0), 0, x=50, y=50, z=50, bounds=Box(x=1, y=1, z=1))  # or CenteredGrid(...)
-smoke = CenteredGrid(0, ZERO_GRADIENT, x=50, y=50, z=50, bounds=Box(x=1, y=1, z=1))
-INFLOW = 0.5 * resample(Sphere(x=0.5, y=0.5, z=0.5, radius=0.1), to=smoke, soft=True)
-pressure = None
+import numpy as np
+import tensorflow as tf
+import matplotlib.pyplot as plt
 
+N = 200  # number of data points
+X = np.random.random(N)
+sign = np.random.choice([-1, 1], size=N)
+Y = np.sqrt(X) * sign
 
-# @jit_compile  # Only for PyTorch, TensorFlow and Jax
-def step(v, s, p, dt=1.):
-    s = advect.mac_cormack(s, v, dt) + INFLOW
-    buoyancy = resample(s * (0, 0, 0.1), to=v)
-    v = advect.semi_lagrangian(v, v, dt) + buoyancy * dt
-    v, p = fluid.make_incompressible(v, (), Solve('auto', 1e-5, x0=p))
-    return v, s, p
+act = tf.keras.layers.ReLU()
+nn_sv = tf.keras.models.Sequential([
+    tf.keras.layers.Input(shape=(1,)),
+    tf.keras.layers.Dense(10, activation=act),
+    tf.keras.layers.Dense(10, activation=act),
+    tf.keras.layers.Dense(1, activation='linear')])
 
+loss_sv = tf.keras.losses.MeanSquaredError()
+optimizer_sv = tf.keras.optimizers.Adam(learning_rate=0.01)
+nn_sv.compile(optimizer=optimizer_sv, loss=loss_sv)
 
-# velocity, smoke, pressure = step(velocity, smoke, pressure)
-#
-# d_n = smoke.data.native('x,y,z')
-# v_xn = velocity.vector['x'].data.native('x,y,z')
-# v_yn = velocity.vector['y'].data.native('x,y,z')
-# v_zn = velocity.vector['z'].data.native('x,y,z')
-#
-# DEBUG = True
-#
-# if DEBUG:
-#     print(smoke.data.shape)
-#     print(type(smoke.data))
-#     print(type(d_n))
-#     print(d_n.size())
-#
-#     print(velocity.data.shape)
-#     print(type(velocity.data))
-#     print(type(v_xn))
-#     print(type(v_yn))
-#     print(type(v_zn))
-#     print(v_xn.size())
-#     print(v_yn.size())
-#     print(v_zn.size())
+results_sv = nn_sv.fit(X, Y, epochs=1000, verbose=0)
 
-for _ in view(smoke, velocity, 'pressure', play=False, namespace=globals()).range(warmup=1):
-    velocity, smoke, pressure = step(velocity, smoke, pressure)
+# Results
+plt.plot(X, Y, '.', label='Data points', color="lightgray")
+plt.plot(X, nn_sv.predict(X), '.', label='Supervised', color="red")
+plt.xlabel('y')
+plt.ylabel('x')
+plt.title('Standard approach')
+plt.legend()
+plt.show()
+
+nn_dp = tf.keras.models.Sequential([
+    tf.keras.layers.Input(shape=(1,)),
+    tf.keras.layers.Dense(10, activation=act),
+    tf.keras.layers.Dense(10, activation=act),
+    tf.keras.layers.Dense(1, activation='linear')])
+
+loss_dp = tf.keras.losses.MeanSquaredError()
+nn_dp.compile(optimizer=optimizer_sv, loss=loss_sv)
