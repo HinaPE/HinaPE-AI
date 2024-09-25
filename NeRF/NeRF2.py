@@ -8,6 +8,7 @@ import json
 import os
 import time
 from tqdm import tqdm, trange
+import matplotlib.pyplot as plt
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 img2mse = lambda x, y: torch.mean((x - y) ** 2)
@@ -850,6 +851,7 @@ def train():
     # writer = SummaryWriter(os.path.join(basedir, 'summaries', expname))
 
     start = start + 1
+    loss_graph = []
     for i in trange(start, N_iters):
         time0 = time.time()
 
@@ -1010,6 +1012,19 @@ def train():
         """
 
         global_step += 1
+        if i % 10 == 0:
+            loss_graph.append(loss.item())
+
+    x = range(len(loss_graph))
+    plt.plot(x, loss_graph)
+
+    # 添加标题和标签
+    plt.title('Line Plot of Loss Values')
+    plt.xlabel('Index')
+    plt.ylabel('Value')
+
+    # 显示图像
+    plt.show()
 
 
 if __name__ == '__main__':
